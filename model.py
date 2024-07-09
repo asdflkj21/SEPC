@@ -74,7 +74,35 @@ class SELoss(torch.nn.Module):
         # print(encolen)
         se_loss = torch.trace(Rate_p.mul(encolen))
         return se_loss
-
+        
+class SELoss2(torch.nn.Module):
+    """
+    The structure entropy fo regularization.
+    """
+    def __init__(self, num_classes):
+        super(SELoss, self).__init__()
+        self.num_classes = num_classes
+        self.act = nn.Sigmoid()
+    
+    def forward(self, logits, label):
+        adj = self.act(logits @ logits.T)
+        # one hot encoding
+        partition_ = F.one_hot(label, num_classes=self.num_classes).to(
+            dtype=adj.dtype, device=adj.device)
+        num_node = partition_.shape[0]
+        num_classes = partition_.shape[1]
+        C = partition_.float().to(adj.device)
+        IsumC = torch.ones_like(C.t()).to(adj.device)
+        adj = adj - torch.diagflat(torch.diag(adj))  # remove self-loop
+        Deno_sumA = 1 / (torch.sum(adj))
+        Rate_p = (C.t().mm(adj.mm(C))) * Deno_sumA
+        enco_p = (IsumC.mm(adj.mm(C))) * Deno_sumA
+        enco_p = enco_p - Rate_p 
+        encolen = torch.log2(enco_p + 1e-20)
+        # print(encolen)
+        se_loss = torch.trace(Rate_p.mul(encolen))
+        return se_loss
+        
 class SELoss_RES(torch.nn.Module):
     """
     The structure entropy fo regularization.
